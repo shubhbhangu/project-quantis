@@ -25,6 +25,12 @@ from blockchain import Blockchain, Transaction, Block
 from wallet import Wallet, create_wallet
 
 
+# Global mining state
+mining_jobs = {}
+job_counter = 0
+job_lock = threading.Lock()
+
+
 class P2PNode:
     """
     Peer-to-peer network node.
@@ -288,6 +294,118 @@ def get_status():
         'difficulty': node.blockchain.difficulty,
         'miner_address': node.miner_address,
         'is_mining': node.is_mining
+    })
+
+
+@app.route('/api/get_mining_job', methods=['GET'])
+def get_mining_job():
+    """Get a mining job for external miners."""
+    global job_counter
+    
+    address = request.args.get('address')
+    if not address:
+        return jsonify({'error': 'Address required'}), 400
+    
+    # Create a new mining job
+    with job_lock:
+        job_counter += 1
+        job_id = job_counter
+    
+    # Prepare block template
+    last_block = node.blockchain.chain[-1]
+    transactions = node.pending_transactions.copy()
+    
+    # Create block header data (simplified)
+    prev_hash = last_block.block_hash
+    timestamp = time.time()
+    merkle_root = hashlib.sha256(json.dumps([tx.tx_id for tx in transactions]).encode()).hexdigest()
+    
+    # Calculate target based on difficulty
+    # Higher difficulty = lower target
+    difficulty = node.blockchain.difficulty
+    target = int(2**256 / difficulty) if difficulty > 0 else 2**256
+    
+    header_data = f"{prev_hash}{merkle_root}{timestamp}{job_id}"
+    
+    job = {
+        'job_id': job_id,
+        'header': header_data,
+        'target': target,
+        'difficulty': difficulty,
+        'height': len(node.blockchain.chain),
+        'prev_hash': prev_hash,
+        'timestamp': timestamp
+    }
+    
+    # Store job for validation later
+    mining_jobs[job_id] = {
+        'header': header_data,
+        'target': target,
+        'timestamp': time.time(),
+        'transactions': transactions
+    }
+    
+    # Clean old jobs (older than 5 minutes)
+    current_time = time.time()
+    expired_jobs = [jid for jid, jdata in mining_jobs.items() 
+                    if current_time - jdata['timestamp'] > 300]
+    for jid in expired_jobs:
+        del mining_jobs[jid]
+    
+    return jsonify(job)
+
+
+@app.route('/api/submit_share', methods=['POST'])
+def submit_share():
+    """Submit a mining share from external miner."""
+    data = request.get_json()
+    job_id = data.get('job_id')
+    nonce = data.get('nonce')
+    submitted_hash = data.get('hash')
+    address = data.get('address')
+    
+    if not all([job_id, nonce, submitted_hash]):
+        return jsonify({'status': 'error', 'message': 'Missing parameters'}), 400
+    
+    job = mining_jobs.get(job_id)
+    if not job:
+        return jsonify({'status': 'error', 'message': 'Job not found or expired'}), 400
+    
+    # Verify the hash meets target
+    try:
+        hash_int = int(submitted_hash, 16)
+        if hash_int >= job['target']:
+            return jsonify({'status': 'rejected', 'message': 'Hash does not meet target'}), 400
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid hash format'}), 400
+    
+    # Check if this is a valid block (meets full difficulty)
+    block_difficulty = node.blockchain.difficulty
+    block_target = int(2**256 / block_difficulty) if block_difficulty > 0 else 2**256
+    
+    is_block = hash_int < block_target
+    
+    if is_block:
+        # Construct and add the actual block
+        print(f"🎉 Valid block found by {address}!")
+        
+        # Create block with transactions
+        block = node.blockchain.mine_pending_transactions(address)
+        if block:
+            node.broadcast_block(block)
+            return jsonify({
+                'status': 'success',
+                'is_block': True,
+                'reward': node.blockchain.block_reward,
+                'message': 'Block accepted!'
+            })
+    
+    # Accept share (for pool mining simulation)
+    return jsonify({
+        'status': 'success',
+        'is_block': False,
+        'difficulty': node.blockchain.difficulty,
+        'message': 'Share accepted'
     })
 
 

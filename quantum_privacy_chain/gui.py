@@ -768,6 +768,11 @@ class NodeManagerGUI(ctk.CTk):
         self.node_process = None
         self.is_running = False
         
+        # Mining state
+        self.miner_process = None
+        self.is_mining = False
+        self.mining_address = ""
+        
         self.create_ui()
         
     def create_ui(self):
@@ -827,10 +832,20 @@ class NodeManagerGUI(ctk.CTk):
         )
         self.stop_btn.pack(side="left", padx=20)
         
+        self.mine_btn = ctk.CTkButton(
+            btn_frame,
+            text="Start Mining",
+            command=self.toggle_mining,
+            width=150,
+            height=40,
+            fg_color="#ff9800"
+        )
+        self.mine_btn.pack(side="left", padx=20)
+        
         # Status
         self.status_label = ctk.CTkLabel(
             self,
-            text="Status: Stopped",
+            text="Status: Stopped | Mining: Inactive",
             font=ctk.CTkFont(size=16)
         )
         self.status_label.grid(row=3, column=0, pady=10)
@@ -893,6 +908,84 @@ class NodeManagerGUI(ctk.CTk):
         
         self.log_text.insert('end', "Node stopped.\n")
         self.log_text.see('end')
+    
+    def toggle_mining(self):
+        """Toggle mining on/off"""
+        if self.is_mining:
+            self.stop_mining()
+        else:
+            self.start_mining()
+    
+    def start_mining(self):
+        """Start mining"""
+        if not self.is_running:
+            messagebox.showerror("Error", "Please start the node first!")
+            return
+        
+        # Get wallet address for rewards
+        port = self.port_entry.get()
+        node_url = f"http://localhost:{port}"
+        
+        try:
+            # Try to get wallet address from node
+            response = requests.get(f"{node_url}/wallet/address", timeout=3)
+            if response.status_code == 200:
+                self.mining_address = response.json().get('address')
+            else:
+                self.mining_address = "QPC_DEFAULT_ADDRESS"
+        except:
+            self.mining_address = "QPC_MINER_ADDRESS"
+        
+        # Show dialog for thread count
+        dialog = ctk.CTkInputDialog(
+            title="Mining Configuration",
+            text="Number of CPU threads (default: 4):"
+        )
+        threads = dialog.get_input()
+        if threads is None:
+            return  # Cancelled
+        try:
+            threads = int(threads) if threads else 4
+        except ValueError:
+            threads = 4
+        
+        self.log_text.insert('end', f"Starting miner with {threads} threads...\n")
+        self.log_text.insert('end', f"Mining address: {self.mining_address}\n")
+        self.log_text.see('end')
+        
+        self.is_mining = True
+        self.mine_btn.configure(text="Stop Mining", fg_color="#f44336")
+        self.status_label.configure(text=f"Status: Running | Mining: Active ({threads} threads)")
+        
+        # In production, spawn actual miner subprocess
+        # For demo, simulate mining activity
+        self.mining_simulation_thread = threading.Thread(target=self.simulate_mining, args=(threads,), daemon=True)
+        self.mining_simulation_thread.start()
+    
+    def stop_mining(self):
+        """Stop mining"""
+        self.is_mining = False
+        self.mine_btn.configure(text="Start Mining", fg_color="#ff9800")
+        self.status_label.configure(text="Status: Running | Mining: Stopped")
+        self.log_text.insert('end', "Mining stopped.\n")
+        self.log_text.see('end')
+    
+    def simulate_mining(self, threads):
+        """Simulate mining activity for demo"""
+        import random
+        hashes = 0
+        shares = 0
+        
+        while self.is_mining:
+            time.sleep(1)
+            hashes += random.randint(1000, 5000) * threads
+            
+            # Simulate occasional share submission
+            if random.random() < 0.1:  # 10% chance per second
+                shares += 1
+                self.log_text.insert('end', f"[Share #{shares}] Accepted! Hashrate: ~{hashes:,} H/s\n")
+                self.log_text.see('end')
+                hashes = 0
 
 
 def main():

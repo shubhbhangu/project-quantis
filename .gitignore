@@ -1,23 +1,4 @@
-# Configuration and data files
-*.json
-*.env
-*.env.*
-config/
-secrets/
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDE specific
-.vscode/
-.idea/
-*.swp
-*.swo
-
+```
 # Python
 __pycache__/
 *.pyc
@@ -27,51 +8,38 @@ __pycache__/
 env/
 venv/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-dist/
-build/
-.nyc_output
-coverage/
-*.lcov
+.env
+.env.local
+*.env.*
 
 # Build artifacts
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-target/
-.gradle/
+build/
+dist/
+*.egg-info/
 
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
+# Logs
+*.log
 
-# Compression
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+
+# Compressed
 *.zip
 *.gz
 *.tar
@@ -90,39 +58,4 @@ target/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Testing
-.testresults/
-testoutput/
-
-# Documentation
-docs/_build/
-.sphinx/
-
-# Distribution / packaging
-.pybuild/
-.deps/
-.installed.cfg
-lib/
-lib64/
-**/*~
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Coverage
-htmlcov/
-.coverage*
-
-# Security
-secret_key.txt
-private.key
-id_rsa
-id_dsa
-
-# Wallet files (if not meant to be tracked)
-*_wallet_*.json
+```
